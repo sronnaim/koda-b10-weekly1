@@ -7,29 +7,59 @@ const rl = readline.createInterface({
 });
 
 export const products = [
-  // Food
-  { id: 1, name: 'Nasi Goreng', category: 'food', price: 25000, stock: 20 },
-  { id: 2, name: 'Mie Goreng', category: 'food', price: 22000, stock: 20 },
-  { id: 3, name: 'Ayam Bakar', category: 'food', price: 30000, stock: 15 },
-  { id: 4, name: 'Soto Ayam', category: 'food', price: 24000, stock: 12 },
-  { id: 5, name: 'Gado-Gado', category: 'food', price: 20000, stock: 10 },
+  // Source: GoFood
+  // Menu Murah
+  { id: 1, name: 'Original Tsuka', price: 24000, stock: 50 },
+  { id: 2, name: 'Miso Tsuka Ramen Komplit', price: 26000, stock: 50 },
 
+  // Tsuka Bento Hemat
+  { id: 3, name: 'Tsuka Bento Hemat A', price: 21000, stock: 50 },
+  { id: 4, name: 'Tsuka Bento Hemat B', price: 21000, stock: 50 },
+  { id: 5, name: 'Tsuka Bento Hemat C', price: 21000, stock: 50 },
+
+  // Ala Carte
+  { id: 6, name: 'Shrimp Roll', price: 12000, stock: 50 },
+  { id: 7, name: 'Lumpia Udang', price: 12000, stock: 50 },
+  { id: 8, name: 'Tori Ball', price: 12000, stock: 50 },
+  { id: 9, name: 'Spicy Tori Ball', price: 12000, stock: 50 },
+  { id: 10, name: 'Ayam Keju', price: 12000, stock: 50 },
+
+  // Tsuka Bento Super Hemat
+  { id: 11, name: 'Tsuka Bento Super Hemat A', price: 19000, stock: 50 },
+  { id: 12, name: 'Tsuka Bento Super Hemat B', price: 19000, stock: 50 },
+  { id: 13, name: 'Tsuka Bento Super Hemat C', price: 19000, stock: 50 },
+
+  // Mie Ayam Tsuka Jepang
+  { id: 14, name: 'Mie Ayam Tsuka', price: 21000, stock: 50 },
+
+  // Tsuka Ramen Basic
+  { id: 16, name: 'Original Tsuka Ramen Basic', price: 20000, stock: 50 },
+  { id: 17, name: 'Miso Tsuka Ramen Basic', price: 22000, stock: 50 },
+  { id: 18, name: 'Volcano Ramen Basic', price: 25000, stock: 50 },
+  { id: 19, name: 'Red Ninja Ramen Basic', price: 25000, stock: 50 },
+
+  // Tsuka Ramen Komplit
+  { id: 20, name: 'Volcano Ramen Komplit', price: 28000, stock: 50 },
+  { id: 21, name: 'Red Ninja Ramen Komplit', price: 28000, stock: 50 },
+
+  // Side Dish
+  { id: 22, name: 'Chicken Karaage Yakitori (Spicy)', price: 9000, stock: 50 },
+  { id: 23, name: 'Fried Gyoza', price: 12000, stock: 50 },
+  { id: 24, name: 'Nori Tempura', price: 6000, stock: 50 },
+  { id: 25, name: 'Egg Tempura', price: 8000, stock: 50 },
+  { id: 26, name: 'Chicken Money Bag', price: 6000, stock: 50 },
+  { id: 27, name: 'Monster Crab Stick', price: 10000, stock: 50 },
+  { id: 28, name: 'Egg Roll', price: 8000, stock: 50 },
+  { id: 29, name: 'Chicken Karaage Yakitori (Mentai)', price: 9000, stock: 50 },
   // Drinks
-  { id: 6, name: 'Es Teh Manis', category: 'drink', price: 6000, stock: 50 },
-  { id: 7, name: 'Kopi Hitam', category: 'drink', price: 8000, stock: 40 },
-  { id: 8, name: 'Es Jeruk', category: 'drink', price: 9000, stock: 30 },
-  { id: 9, name: 'Air Mineral', category: 'drink', price: 4000, stock: 100 },
-
-  // Desserts
-  {
-    id: 10,
-    name: 'Pisang Goreng',
-    category: 'dessert',
-    price: 12000,
-    stock: 18,
-  },
-  { id: 11, name: 'Es Campur', category: 'dessert', price: 15000, stock: 10 },
-  { id: 12, name: 'Kue Lapis', category: 'dessert', price: 8000, stock: 0 }, // sold out, good for testing
+  { id: 30, name: 'Es Mango Sagoo', price: 10000, stock: 50 },
+  { id: 31, name: 'Es Teh Susu Cincau', price: 10000, stock: 50 },
+  { id: 32, name: 'Teh Hijau Tawar Dingin', price: 6000, stock: 50 },
+  { id: 33, name: 'Air Mineral', price: 7000, stock: 50 },
+  { id: 34, name: 'Es Teh Blackcurrant', price: 8000, stock: 50 },
+  { id: 35, name: 'Es Teh Leci', price: 8000, stock: 50 },
+  { id: 36, name: 'Es Cokelat Susu', price: 9000, stock: 50 },
+  { id: 37, name: 'Mango Yakult', price: 9000, stock: 50 },
 ];
 
 const STOP = Symbol.for('stop');
@@ -67,12 +97,6 @@ const pages = {
   exit: handleExit,
 };
 
-// Main menu
-// To order
-// To cart
-// To history
-// Exit
-
 const mainMenuNavs = {
   1: {
     page: 'order',
@@ -103,17 +127,12 @@ function handleMainMenu() {
   });
 }
 
-// Exit
 function handleExit() {
   console.log('\nSampai jumpa kembali!\n');
   rl.close();
   return Promise.resolve(STOP);
 }
 
-// Order
-// To cart
-// Pick --> to confirmation
-// To main menu
 const orderNavs = {
   '00': {
     page: 'mainMenu',
@@ -162,9 +181,12 @@ function handleOrder() {
   });
 }
 
-// Confirmation
-// Ya, to cart
-// No, to order
+/**
+ *
+ * @param {number} id
+ * @param {number} qty
+ * @returns
+ */
 function handleConfirm(id, qty) {
   console.log('\nKonfirmasi pesanan\n');
 
@@ -205,12 +227,6 @@ function handleConfirm(id, qty) {
     return handleConfirm(id, Number.parseInt(a));
   });
 }
-
-// Cart
-// Order --> To order succes
-// Empty --> To empty cart
-// To order
-// To main menu
 
 function handleCart() {
   console.log('\nKeranjang Pesanan\n');
@@ -257,8 +273,6 @@ function handleCart() {
   });
 }
 
-// Order success
-// To history or main
 function createOrder(items) {
   let total = 0;
   const orderItems = items.reduce((prev, i) => {
@@ -302,7 +316,6 @@ function createOrder(items) {
   return 'history';
 }
 
-// History
 function handleHistory() {
   console.log('\nRiwayat Pesanan\n');
 
@@ -344,9 +357,6 @@ function handleHistory() {
     },
   );
 }
-
-// Empty Cart
-// To order or main
 
 // Utils
 function getAvailableProductIDs() {
