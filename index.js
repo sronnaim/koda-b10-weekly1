@@ -32,9 +32,31 @@ export const products = [
   { id: 12, name: 'Kue Lapis', category: 'dessert', price: 8000, stock: 0 }, // sold out, good for testing
 ];
 
-const cart = [];
+const STOP = Symbol.for('stop');
 
-const pastOrders = [];
+const cart = [
+  {
+    id: 0,
+    qty: 0,
+  },
+];
+
+const pastOrders = [
+  {
+    id: '',
+    items: [
+      {
+        productId: 0,
+        name: '',
+        qty: 0,
+        price: 0,
+        subtotal: 0,
+      },
+    ],
+    total: 0,
+    createdAt: new Date(),
+  },
+];
 
 const pages = {
   mainMenu: handleMainMenu,
@@ -76,13 +98,7 @@ function handleMainMenu() {
     console.log(`${key}. ${label}`);
   });
 
-  return ask('Pilih:').then((a) => {
-    if (!Object.hasOwn(mainMenuNavs, a)) {
-      console.log('\nPilihan tidak dikenal');
-      console.log('Kembali ke Main Menu...');
-      return 'mainMenu';
-    }
-
+  return ask('Pilih: ', Object.keys(mainMenuNavs)).then((a) => {
     return mainMenuNavs[a].page;
   });
 }
@@ -91,7 +107,7 @@ function handleMainMenu() {
 function handleExit() {
   console.log('\nSampai jumpa kembali!\n');
   rl.close();
-  return Promise.resolve('stop');
+  return Promise.resolve(STOP);
 }
 
 // Order
@@ -112,19 +128,22 @@ const orderNavs = {
 function handleOrder() {
   console.log('\nMenu Pesanan\n');
 
-  Object.entries(orderNavs).forEach(([key, { label }]) => {
-    console.log(`${key}. ${label}`);
-  });
-
-  console.log();
-
   products.forEach((i) =>
     console.log(
       `${i.stock > 0 ? `${i.id}. ` : '--'} ${i.name} | harga: ${toIDR(i.price)} | ${i.stock > 0 ? `stok: ${i.stock}` : 'stok habis'}`,
     ),
   );
 
-  return ask('Pilih: ').then((a) => {
+  console.log('');
+
+  Object.entries(orderNavs).forEach(([key, { label }]) => {
+    console.log(`${key}. ${label}`);
+  });
+
+  return ask('Pilih: ', [
+    ...Object.keys(orderNavs),
+    ...getAvailableProductIDs().map((id) => id.toString(10)),
+  ]).then((a) => {
     if (Object.hasOwn(orderNavs, a)) return orderNavs[a].page;
 
     const item = products.find((p) => p.id === Number.parseInt(a));
@@ -154,7 +173,7 @@ function handleConfirm(id, qty) {
   if (!item) {
     console.log('Menu tidak dikenal');
     console.log('Kembali ke Menu Pesanan');
-    return 'order';
+    return Promise.resolve('order');
   }
 
   if (qty > item.stock) {
@@ -167,7 +186,11 @@ function handleConfirm(id, qty) {
   console.log('\n00. Kembali ke Menu Pesanan');
   if (qty <= item.stock) console.log('01. Udah oke, lanjut ke keranjang');
 
-  return ask('Ubah quantity pesanan menjadi: ').then((a) => {
+  return ask('Ubah quantity pesanan menjadi: ', [
+    ...generateStockInputs(item.stock),
+    '00',
+    '01',
+  ]).then((a) => {
     if (a === '00') return 'order';
 
     if (a === '01' && qty <= item.stock) {
@@ -177,11 +200,6 @@ function handleConfirm(id, qty) {
       else cart.push({ id, qty });
 
       return 'cart';
-    }
-
-    if (a.startsWith('0')) {
-      console.log('\nPilihan tidak dikenal\n');
-      return handleConfirm(id, qty);
     }
 
     return handleConfirm(id, Number.parseInt(a));
@@ -198,14 +216,9 @@ function handleCart() {
   console.log('\nKeranjang Pesanan\n');
 
   if (cart.length === 0) {
-    console.log('Keranjang masih kosong, yuk mulai pilih\n');
-    return ask('1. Ke menu pesanan').then((a) => {
-      if (a !== '1') {
-        console.log('\nPilihan tidak dikenali\n');
-        return Promise.resolve('order');
-      }
-
-      return Promise.resolve('order');
+    console.log('Keranjang masih kosong, yuk mulai pilih');
+    return ask('1. Ke menu pesanan', ['1']).then(() => {
+      return 'order';
     });
   }
 
@@ -229,7 +242,7 @@ function handleCart() {
   console.log('2. Kosongkan keranjang');
   console.log('0. Kembali ke Main Menu\n');
 
-  return ask('Pilih: ').then((a) => {
+  return ask('Pilih: ', ['1', '2', '0']).then((a) => {
     switch (a) {
       case '1':
         return createOrder(cart);
@@ -291,6 +304,11 @@ function createOrder(items) {
 
 // History
 function handleHistory() {
+  console.log('\nRiwayat Pesanan\n');
+
+  if (pastOrders.length === 0)
+    console.log('Waduh, kamu belum pernah pesan apapun nih, yuk mulai memesan');
+
   pastOrders
     .sort((a, b) => a.createdAt - b.createdAt)
     .forEach((o, i) => {
@@ -314,39 +332,66 @@ function handleHistory() {
       );
     });
 
-  return ask('0. Kembali ke Main Menu').then((a) => {
-    if (a !== '0') {
-      console.log('\nPilihan tidak dikenal');
-      return 'history';
-    }
+  return ask('\n1. Ke Menu Pesanan\n0. Kembali ke Main Menu', ['0', '1']).then(
+    (a) => {
+      switch (a) {
+        case '0':
+          return 'mainMenu';
 
-    return 'mainMenu';
-  });
+        default:
+          return 'order';
+      }
+    },
+  );
 }
 
 // Empty Cart
 // To order or main
 
 // Utils
+function getAvailableProductIDs() {
+  return products.filter((p) => p.stock > 0).map((p) => p.id);
+}
 
+/**
+ *
+ * @param {number} stock
+ * @returns
+ */
+function generateStockInputs(stock) {
+  return [...Array(stock)].map((_, i) => (i + 1).toString(10));
+}
+
+/**
+ *
+ * @param {number} num
+ * @returns
+ */
 function toIDR(num) {
-  if (typeof num !== 'number') return '';
-
   return num.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 }
 
-function ask(question) {
-  return rl.question('\n' + question + '\n> ').then((a) => {
-    const num = Number.parseInt(a);
+/**
+ *
+ * @param {string} question
+ * @param {string[]} acceptableOptions
+ * @returns
+ */
+function ask(question, acceptableOptions) {
+  return rl.question('\n' + question + '\n> ').then((input) => {
+    const answer = input.trim();
 
-    if (Number.isNaN(num)) return 'invalid';
+    if (!acceptableOptions.includes(answer)) {
+      console.log('Jawaban tidak dikenal');
+      return ask(question, acceptableOptions);
+    }
 
-    return a;
+    return answer;
   });
 }
 
 function run(pageName) {
-  if (pageName === 'stop') return Promise.resolve();
+  if (pageName === STOP) return Promise.resolve();
 
   if (!Object.hasOwn(pages, pageName)) {
     console.log('\nTidak ditemukan: ', pageName);
@@ -359,7 +404,11 @@ function run(pageName) {
   });
 }
 
+// Initializes starting states
+pastOrders.splice(0);
+cart.splice(0);
+
 run('mainMenu').catch(() => {
-  console.log('\nAda yang salah');
+  console.log('\nWhoops, ada yang salah');
   console.log('Keluar program...');
 });
