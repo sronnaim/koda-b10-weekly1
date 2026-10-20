@@ -1,12 +1,55 @@
 import { randomUUIDv7 } from 'node:crypto';
 import readline from 'node:readline/promises';
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+/**
+ * @typedef {Object} Product
+ * @property {number} id
+ * @property {string} name
+ * @property {number} price
+ * @property {number} stock
+ */
 
-export const products = [
+/**
+ * @typedef {Object} Destination
+ * @property {string} nextPage
+ * @property {any} [context]
+ */
+
+/**
+ * @typedef {Object} CartItem
+ * @property {number} id
+ * @property {number} qty
+ */
+
+/**
+ * @typedef {(string) => { valid: Boolean, msg: string | undefined }} ValidationFn
+ */
+
+/**
+ * @typedef {([any]) => Promise<Destination>} PageHandler
+ */
+
+/**
+ * @typedef {Object} OrderItem
+ * @property {number} productId
+ * @property {string} name
+ * @property {number} qty
+ * @property {number} price
+ * @property {number} subtotal
+ */
+
+/**
+ * @typedef {Object} Order
+ * @property {string} id
+ * @property {OrderItem[]} items
+ * @property {number} total
+ * @property {Date} createdAt
+ */
+
+/**
+ * @type {Product[]}
+ */
+const products = [
   // Source: GoFood
   // Menu Murah
   { id: 1, name: 'Original Tsuka', price: 24000, stock: 50 },
@@ -62,89 +105,186 @@ export const products = [
   { id: 37, name: 'Mango Yakult', price: 9000, stock: 50 },
 ];
 
-const STOP = Symbol.for('stop');
+/**
+ * @type {CartItem[]}
+ */
+const cart = [];
 
-const cart = [
-  {
-    id: 0,
-    qty: 0,
-  },
-];
+/**
+ * @type {Order[]}
+ */
+const orders = [];
 
-const pastOrders = [
-  {
-    id: '',
-    items: [
-      {
-        productId: 0,
-        name: '',
-        qty: 0,
-        price: 0,
-        subtotal: 0,
-      },
-    ],
-    total: 0,
-    createdAt: new Date(),
-  },
-];
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdin,
+});
 
-const pages = {
-  mainMenu: handleMainMenu,
-  cart: handleCart,
-  confirm: handleConfirm,
-  order: handleOrder,
-  history: handleHistory,
-  exit: handleExit,
-};
+/**
+ * @type {Map<string, PageHandler}
+ */
+const pagesRegistry = new Map();
 
-const mainMenuNavs = {
-  1: {
-    page: 'order',
-    label: 'Menu Pesanan',
-  },
-  2: {
-    page: 'cart',
-    label: 'Keranjang',
-  },
-  3: {
-    page: 'history',
-    label: 'Riwayat Pesanan',
-  },
-  0: {
-    page: 'exit',
-    label: 'Keluar',
-  },
-};
+const STOP_SIGNAL = Symbol.for('stop');
 
+/**
+ *
+ * @param {Destination} nextDestination
+ */
+function runPage(nextDestination) {
+  let { nextPage, context } = nextDestination;
+
+  if (nextPage === STOP_SIGNAL) return Promise.resolve();
+
+  if (!pagesRegistry.has(nextPage)) {
+    console.log(`\nPage ${nextPage} does not exist`);
+
+    if (!pagesRegistry.has('mainMenu')) {
+      console.log('Main Menu has not registered yet, exiting ...');
+      return Promise.resolve(STOP_SIGNAL);
+    }
+
+    console.log('Navigating to Main Menu');
+    nextPage = 'mainMenu';
+  }
+
+  return pagesRegistry
+    .get(nextPage)(context)
+    .then((nextDestination) => {
+      return runPage(nextDestination);
+    });
+}
+
+/**
+ *
+ * @param {string} question
+ * @param {ValidationFn} validation
+ */
+function ask(question, validation) {
+  return rl.question('\n' + question + '\n> ').then((answer) => {
+    const a = answer.trim();
+
+    const { valid, msg } = validation(a);
+
+    if (msg) console.log(msg);
+
+    if (!valid) return ask(question, validation);
+
+    return a;
+  });
+}
+
+/**
+ * @typedef {(any) => (string) => { valid: Boolean, msg: string | undefined }} ValidationFn
+ */
+
+/**
+ * @type {ValidationFn}
+ * @param {number} qty
+ */
+function inQuantity(qty) {
+  return (input) => {
+    const num = Number(input);
+
+    if (Number.isNaN(num) || (input.startsWith('0') && input !== '0'))
+      return {
+        valid: false,
+        msg: `Whoops, '${input}' bukan quantity valid, ayo cek lagi`,
+      };
+
+    if (num < 1) return { valid: false, msg: 'Quantity minimal 1' };
+
+    if (num > qty)
+      return { valid: false, msg: `Quantity tidak bisa melebihi ${qty}` };
+
+    return { valid: true };
+  };
+}
+
+/**
+ * @type {ValidationFn}
+ * @param {string[]} array
+ */
+function inArray(array) {
+  return (input) => {
+    if (!array.includes(input))
+      return { valid: false, msg: `Pilihan '${input}' tidak dikenali` };
+
+    return { valid: true };
+  };
+}
+
+function inQuantityAndArray(qty, array) {
+  return (input) => {
+    const { valid: isInArray } = inArray(array)(input);
+
+    if (isInArray) return { valid: true };
+
+    const { valid: isValidQuantity, msg } = inQuantity(qty)(input);
+
+    if (isValidQuantity) return { valid: true };
+
+    return { valid: false, msg };
+  };
+}
+
+/**
+ * @type {PageHandler}
+ */
 function handleMainMenu() {
+  const mainMenuNavs = {
+    1: {
+      page: 'order',
+      label: 'Menu Pesanan',
+    },
+    2: {
+      page: 'cart',
+      label: 'Keranjang',
+    },
+    3: {
+      page: 'history',
+      label: 'Riwayat Pesanan',
+    },
+    0: {
+      page: 'exit',
+      label: 'Keluar',
+    },
+  };
+
   console.log('\nMain Menu\n');
   Object.entries(mainMenuNavs).forEach(([key, { label }]) => {
     console.log(`${key}. ${label}`);
   });
 
-  return ask('Pilih: ', Object.keys(mainMenuNavs)).then((a) => {
-    return mainMenuNavs[a].page;
+  return ask('Pilih: ', inArray(Object.keys(mainMenuNavs))).then((a) => {
+    return { nextPage: mainMenuNavs[a].page };
   });
 }
 
+/**
+ * @type {PageHandler}
+ */
 function handleExit() {
   console.log('\nSampai jumpa kembali!\n');
   rl.close();
-  return Promise.resolve(STOP);
+  return Promise.resolve({ nextPage: STOP_SIGNAL });
 }
 
-const orderNavs = {
-  '00': {
-    page: 'mainMenu',
-    label: 'Kembali ke Main Menu',
-  },
-  '01': {
-    page: 'cart',
-    label: 'Lihat keranjang',
-  },
-};
-
+/**
+ * @type {PageHandler}
+ */
 function handleOrder() {
+  const orderNavs = {
+    '00': {
+      page: 'mainMenu',
+      label: 'Kembali ke Main Menu',
+    },
+    '01': {
+      page: 'cart',
+      label: 'Lihat keranjang',
+    },
+  };
+
   console.log('\nMenu Pesanan\n');
 
   products.forEach((i) =>
@@ -159,82 +299,30 @@ function handleOrder() {
     console.log(`${key}. ${label}`);
   });
 
-  return ask('Pilih: ', [
-    ...Object.keys(orderNavs),
-    ...getAvailableProductIDs().map((id) => id.toString(10)),
-  ]).then((a) => {
-    if (Object.hasOwn(orderNavs, a)) return orderNavs[a].page;
+  return ask(
+    'Pilih: ',
+    inArray([
+      ...Object.keys(orderNavs),
+      ...products.map((p) => p.id.toString(10)),
+    ]),
+  ).then((a) => {
+    if (Object.keys(orderNavs).includes(a))
+      return { nextPage: orderNavs[a].page };
 
-    const item = products.find((p) => p.id === Number.parseInt(a));
-
-    if (!item) {
-      console.log('\nMenu tidak dikenal');
-      return 'order';
-    }
-
-    if (item.stock <= 0) {
-      console.log(`\nMaaf, ${item.name} lagi habis nih`);
-      return 'order';
-    }
-
-    return handleConfirm(item.id, 1);
+    return { nextPage: 'confirm', context: { id: Number(a), qty: 1 } };
   });
 }
 
 /**
- *
- * @param {number} id
- * @param {number} qty
- * @returns
+ * @type {PageHandler}
  */
-function handleConfirm(id, qty) {
-  console.log('\nKonfirmasi pesanan\n');
-
-  const item = products.find((p) => p.id === id);
-
-  if (!item) {
-    console.log('Menu tidak dikenal');
-    console.log('Kembali ke Menu Pesanan');
-    return Promise.resolve('order');
-  }
-
-  if (qty > item.stock) {
-    console.log(
-      `Tidak dapat memesan ${item.name} sebanyak ${qty}. Sisa stok ${item.stock}`,
-    );
-  } else
-    console.log(`Pesan ${item.name} sebanyak ${qty}? Sisa stok ${item.stock}`);
-
-  console.log('\n00. Kembali ke Menu Pesanan');
-  if (qty <= item.stock) console.log('01. Udah oke, lanjut ke keranjang');
-
-  return ask('Ubah quantity pesanan menjadi: ', [
-    ...generateStockInputs(item.stock),
-    '00',
-    '01',
-  ]).then((a) => {
-    if (a === '00') return 'order';
-
-    if (a === '01' && qty <= item.stock) {
-      const existing = cart.find((i) => i.id === id);
-
-      if (existing) existing.qty += qty;
-      else cart.push({ id, qty });
-
-      return 'cart';
-    }
-
-    return handleConfirm(id, Number.parseInt(a));
-  });
-}
-
 function handleCart() {
   console.log('\nKeranjang Pesanan\n');
 
   if (cart.length === 0) {
     console.log('Keranjang masih kosong, yuk mulai pilih');
-    return ask('1. Ke menu pesanan', ['1']).then(() => {
-      return 'order';
+    return ask('1. Ke menu pesanan', inArray(['1'])).then(() => {
+      return { nextPage: 'order' };
     });
   }
 
@@ -256,26 +344,111 @@ function handleCart() {
 
   console.log('\n1. Buat pesanan');
   console.log('2. Kosongkan keranjang');
+  console.log('3. Lanjut nambah pesanan');
   console.log('0. Kembali ke Main Menu\n');
 
-  return ask('Pilih: ', ['1', '2', '0']).then((a) => {
+  return ask('Pilih: ', inArray(['1', '2', '3', '0'])).then((a) => {
     switch (a) {
       case '1':
-        return createOrder(cart);
+        return { nextPage: 'createOrder' };
 
       case '2':
         cart.splice(0);
-        return 'order';
+        return { nextPage: 'order' };
 
-      case '0':
-        return 'mainMenu';
+      case '3':
+        return { nextPage: 'order' };
+
+      default:
+        return { nextPage: 'mainMenu' };
     }
   });
 }
 
-function createOrder(items) {
+/**
+ * @type {PageHandler}
+ */
+function handleHistory() {
+  console.log('\nRiwayat Pesanan\n');
+
+  if (orders.length === 0)
+    console.log('Waduh, kamu belum pernah pesan apapun nih, yuk mulai memesan');
+
+  orders
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .forEach((o, i) => {
+      console.log(`\nOrder No. ${i + 1}`);
+      console.log(
+        o.createdAt.toLocaleString('id-ID', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Jakarta',
+        }),
+      );
+      console.log('Nominal total pesanan: ', toIDR(o.total));
+
+      o.items.forEach((i) =>
+        console.log(`${i.name}, qty: ${i.qty}, subtotal: ${toIDR(i.subtotal)}`),
+      );
+    });
+
+  return ask(
+    '\n1. Ke Menu Pesanan\n0. Kembali ke Main Menu',
+    inArray(['0', '1']),
+  ).then((a) => {
+    switch (a) {
+      case '1':
+        return { nextPage: 'order' };
+
+      default:
+        return { nextPage: 'mainMenu' };
+    }
+  });
+}
+
+/**
+ * @type {PageHandler}
+ */
+function handleConfirm({ id, qty }) {
+  console.log('\nKonfirmasi pesanan\n');
+
+  const item = products.find((p) => p.id === id);
+
+  console.log(`Pesan ${item.name} sebanyak ${qty}? Sisa stok ${item.stock}`);
+
+  console.log('\n00. Kembali ke Menu Pesanan');
+  if (qty <= item.stock) console.log('01. Udah oke, lanjut ke keranjang');
+
+  return ask(
+    'Ubah quantity pesanan atau pilih menu: ',
+    inQuantityAndArray(item.stock, ['00', '01']),
+  ).then((a) => {
+    if (a === '00') return { nextPage: 'order' };
+
+    if (a === '01') {
+      const existing = cart.find((i) => i.id === id);
+
+      if (existing) existing.qty += qty;
+      else cart.push({ id, qty });
+
+      return { nextPage: 'cart' };
+    }
+
+    return { nextPage: 'confirm', context: { id, qty: Number(a) } };
+  });
+}
+
+/**
+ * @type {PageHandler}
+ */
+function handleCreateOrder() {
   let total = 0;
-  const orderItems = items.reduce((prev, i) => {
+  const orderItems = cart.reduce((prev, i) => {
     let itemIndex;
     const item = products.find((p, index) => {
       const match = p.id === i.id;
@@ -303,7 +476,7 @@ function createOrder(items) {
     return prev;
   }, []);
 
-  pastOrders.push({
+  orders.push({
     id: randomUUIDv7(),
     items: orderItems,
     total,
@@ -313,63 +486,20 @@ function createOrder(items) {
   // Reset cart
   cart.splice(0);
 
-  return 'history';
-}
+  console.log('\nPesanan berhasil dibuat');
 
-function handleHistory() {
-  console.log('\nRiwayat Pesanan\n');
+  return ask(
+    '1. Lihat riwayat pesanan\n0. Kembali ke Main Menu\n',
+    inArray(['1', '0']),
+  ).then((a) => {
+    switch (a) {
+      case '1':
+        return { nextPage: 'history' };
 
-  if (pastOrders.length === 0)
-    console.log('Waduh, kamu belum pernah pesan apapun nih, yuk mulai memesan');
-
-  pastOrders
-    .sort((a, b) => a.createdAt - b.createdAt)
-    .forEach((o, i) => {
-      console.log(`\nOrder No. ${i + 1}`);
-      console.log(
-        o.createdAt.toLocaleString('id-ID', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false,
-          timeZone: 'Asia/Jakarta',
-        }),
-      );
-      console.log('Nominal total pesanan: ', toIDR(o.total));
-
-      o.items.forEach((i) =>
-        console.log(`${i.name}, qty: ${i.qty}, subtotal: ${toIDR(i.subtotal)}`),
-      );
-    });
-
-  return ask('\n1. Ke Menu Pesanan\n0. Kembali ke Main Menu', ['0', '1']).then(
-    (a) => {
-      switch (a) {
-        case '0':
-          return 'mainMenu';
-
-        default:
-          return 'order';
-      }
-    },
-  );
-}
-
-// Utils
-function getAvailableProductIDs() {
-  return products.filter((p) => p.stock > 0).map((p) => p.id);
-}
-
-/**
- *
- * @param {number} stock
- * @returns
- */
-function generateStockInputs(stock) {
-  return [...Array(stock)].map((_, i) => (i + 1).toString(10));
+      default:
+        return { nextPage: 'mainMenu' };
+    }
+  });
 }
 
 /**
@@ -381,44 +511,19 @@ function toIDR(num) {
   return num.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' });
 }
 
-/**
- *
- * @param {string} question
- * @param {string[]} acceptableOptions
- * @returns
- */
-function ask(question, acceptableOptions) {
-  return rl.question('\n' + question + '\n> ').then((input) => {
-    const answer = input.trim();
+function main() {
+  pagesRegistry.set('mainMenu', handleMainMenu);
+  pagesRegistry.set('exit', handleExit);
+  pagesRegistry.set('order', handleOrder);
+  pagesRegistry.set('cart', handleCart);
+  pagesRegistry.set('history', handleHistory);
+  pagesRegistry.set('confirm', handleConfirm);
+  pagesRegistry.set('createOrder', handleCreateOrder);
 
-    if (!acceptableOptions.includes(answer)) {
-      console.log('Jawaban tidak dikenal');
-      return ask(question, acceptableOptions);
-    }
-
-    return answer;
+  runPage('mainMenu').catch(() => {
+    console.log('\n\nWhoops, ada yang salah');
+    console.log('Exiting...\n');
   });
 }
 
-function run(pageName) {
-  if (pageName === STOP) return Promise.resolve();
-
-  if (!Object.hasOwn(pages, pageName)) {
-    console.log('\nTidak ditemukan: ', pageName);
-    console.log('\nKembali ke Main Menu\n');
-    pageName = 'mainMenu';
-  }
-
-  return pages[pageName]().then((nextPage) => {
-    return run(nextPage);
-  });
-}
-
-// Initializes starting states
-pastOrders.splice(0);
-cart.splice(0);
-
-run('mainMenu').catch(() => {
-  console.log('\nWhoops, ada yang salah');
-  console.log('Keluar program...');
-});
+main();
