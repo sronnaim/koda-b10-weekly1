@@ -1,4 +1,5 @@
 import { randomUUIDv7 } from "node:crypto";
+import { stdin, stdout } from "node:process";
 import readline from "node:readline/promises";
 
 /**
@@ -116,8 +117,8 @@ const cart = [];
 const orders = [];
 
 const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdin,
+  input: stdin,
+  output: stdout,
 });
 
 /**
