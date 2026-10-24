@@ -1,6 +1,7 @@
 import { randomUUIDv7 } from "node:crypto";
 import { stdin, stdout } from "node:process";
 import readline from "node:readline/promises";
+import { toIDR, toJakartaLocalTime } from "./utils/index.mjs";
 
 /**
  * @typedef {Object} Product
@@ -374,16 +375,7 @@ function handleHistory() {
     .forEach((o, i) => {
       console.log(`\nOrder No. ${i + 1}`);
       console.log(
-        o.createdAt.toLocaleString("id-ID", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
-          timeZone: "Asia/Jakarta",
-        }),
+        toJakartaLocalTime(o.createdAt),
       );
       console.log("Nominal total pesanan: ", toIDR(o.total));
 
@@ -494,15 +486,6 @@ function handleCreateOrder() {
         return { nextPage: "mainMenu" };
     }
   });
-}
-
-/**
- *
- * @param {number} num
- * @returns
- */
-function toIDR(num) {
-  return num.toLocaleString("id-ID", { style: "currency", currency: "IDR" });
 }
 
 function main() {
