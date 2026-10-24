@@ -28,6 +28,12 @@ export function inArray(array) {
   };
 }
 
+/**
+ *
+ * @param {number} qty
+ * @param {string | number[]} array
+ * @returns
+ */
 export function inQuantityAndArray(qty, array) {
   return (input) => {
     const errMsg = inArray(array)(input);
