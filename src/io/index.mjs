@@ -1,26 +1,21 @@
 import { stdin, stdout } from "node:process";
 import readline from "node:readline/promises";
 
-const rl = readline.createInterface({
-  input: stdin,
-  output: stdout,
-});
+export function newIo(input = stdin, output = stdout) {
+  const rl = readline.createInterface(input, output);
 
-/**
- *
- * @param {string} question
- * @param {ValidationFn} validation
- */
-export function ask(question, validation) {
-  return rl.question("\n" + question + "\n> ").then((answer) => {
-    const a = answer.trim();
+  const sendMessage = (msg) => {
+    output.write(msg);
+  };
 
-    const { valid, msg } = validation(a);
+  const prompt = async (question) => {
+    const answer = await rl.question(`${question}\n> `).trim();
 
-    if (msg) console.log(msg);
+    return answer.trim();
+  };
 
-    if (!valid) return ask(question, validation);
-
-    return a;
-  });
+  return {
+    sendMessage,
+    prompt,
+  };
 }
