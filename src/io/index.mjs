@@ -5,7 +5,7 @@ export function newIo(input = stdin, output = stdout) {
   const rl = readline.createInterface(input, output);
 
   const sendMessage = (msg) => {
-    output.write(msg);
+    output.write(`\n${msg}\n`);
   };
 
   const prompt = async (question) => {
