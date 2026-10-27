@@ -4,6 +4,14 @@ export async function handleNotFoundDefault(ctx, params) {
 
   await io.sendMessage(`Maaf, page dengan ID ${triedId} tidak dapat ditemukan`);
 
+  while (true) {
+    const answer = await io.prompt("Kembali ke menu utama? (ya)").toLowerCase();
+
+    if (answer === "ya") break;
+
+    io.sendMessage("Jawaban tidak dikenal");
+  }
+
   return {
     nextPageId: startPageId,
   };
@@ -11,9 +19,17 @@ export async function handleNotFoundDefault(ctx, params) {
 
 export async function handleErrorDefault(ctx, params) {
   const { io } = ctx;
-  const { history: { id }, startPageId } = params;
+  const { triedId, startPageId } = params;
 
-  await io.sendMessage(`Whoops, ada kesalahan waktu mengakses paged dengan ID ${id}`);
+  await io.sendMessage(`Whoops, ada kesalahan waktu mengakses page dengan ID ${triedId}`);
+
+  while (true) {
+    const answer = await io.prompt("Kembali ke menu utama? (ya)").toLowerCase();
+
+    if (answer === "ya") break;
+
+    io.sendMessage("Jawaban tidak dikenal");
+  }
 
   return {
     nextPageId: startPageId,
