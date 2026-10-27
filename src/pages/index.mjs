@@ -5,9 +5,9 @@ export async function handleNotFoundDefault(ctx, params) {
   await io.sendMessage(`Maaf, page dengan ID ${triedId} tidak dapat ditemukan`);
 
   while (true) {
-    const answer = await io.prompt("Kembali ke menu utama? (ya)").toLowerCase();
+    const answer = await io.prompt("Kembali ke menu utama? (ya)");
 
-    if (answer === "ya") break;
+    if (answer.toLowerCase() === "ya") break;
 
     io.sendMessage("Jawaban tidak dikenal");
   }
