@@ -14,8 +14,13 @@ export function newIo(input = stdin, output = stdout) {
     return answer.trim();
   };
 
+  const close = () => {
+    rl.close();
+  };
+
   return {
     sendMessage,
     prompt,
+    close,
   };
 }
