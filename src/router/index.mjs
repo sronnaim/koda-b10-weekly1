@@ -1,4 +1,4 @@
-import { handleErrorDefault, handleNotFoundDefault } from "../pages/index.mjs";
+import { isAppError, newAppError } from "../errors/index.mjs";
 
 /**
  *
@@ -7,70 +7,77 @@ import { handleErrorDefault, handleNotFoundDefault } from "../pages/index.mjs";
  * @param {string} notFoundPageId
  * @param {string} errorPageId
  */
-export function newRouter(pages, startPageId, notFoundPageId, errorPageId) {
-  const resolvedNotFoundId = notFoundPageId || "not-found";
-  const resolvedErrorId = errorPageId || "error";
+export function newRouter({ pages, start, notFound, error }) {
+  if (
+    (!pages || !Array.isArray(pages) || pages.length === 0) ||
+    (!start || typeof start !== "object" || typeof start.id !== "string" || typeof start.pageHandler !== "function") ||
+    (!notFound || typeof notFound !== "object" || typeof notFound.id !== "string" || typeof notFound.pageHandler !== "function") ||
+    (!error || typeof error !== "object" || typeof error.id !== "string" || typeof error.pageHandler !== "function")
+  ) {
+    throw newAppError("Invalid router configuration");
+  }
 
   const registry = pages.reduce((prevMap, page) => {
-    if (prevMap.has(page.id)) throw new Error(`Duplicate page on ID ${page.id}`);
+    if (typeof page.id !== "string" || page.id.length === 0) throw newAppError("Page ID must be a non-empty string");
+
+    if (typeof page.pageHandler !== "function") throw newAppError(`Handler for '${page.id}' must be a function`);
+
+    if (prevMap.has(page.id)) throw newAppError(`Duplicate page on ID ${page.id}`);
 
     prevMap.set(page.id, page.pageHandler);
 
     return prevMap;
   }, new Map());
 
-  if (!registry.has(startPageId)) throw new Error(`Start page ID '${startPageId}' does not exist on pages the registry`);
+  if (registry.has(start.id)) registry.delete(start.id);
 
-  if (!registry.has(resolvedNotFoundId)) {
-    console.warn(`Custom Not Found Page is defined with ID '${resolvedNotFoundId}' but it does not exist on pages config array, setting it up with default Not Found Page...`);
-    registry.set(resolvedNotFoundId, handleNotFoundDefault);
-  }
+  if (registry.has(notFound.id)) registry.delete(notFound.id);
 
-  if (!registry.has(resolvedErrorId)) {
-    console.warn(`Custom Error Page is defined with ID '${resolvedErrorId}' but it does not exist on pages config array, setting it up with default Error Page...`);
-    registry.set(errorPageId, handleErrorDefault);
-  }
+  if (registry.has(error.id)) registry.delete(error.id);
 
-  const register = (pageId, pageHandler) => {
-    if (typeof pageId !== "string" || pageId.length === 0) throw new TypeError("Page ID must be a non-empty string");
-
-    if (typeof pageHandler !== "function") throw new TypeError(`Handler for '${pageId}' must be a function`);
-
-    if (registry.has(pageId)) throw new Error(`Failed to register page ${pageId}`);
-
-    registry.set(pageId, pageHandler);
-  };
+  registry.set(start.id, start.pageHandler);
+  registry.set(notFound.id, notFound.pageHandler);
+  registry.set(error.id, error.pageHandler);
 
   const run = async (ctx) => {
-    let currentId = startPageId;
+    let currentId = start.id;
     let currentParams;
+    let errCounter = 0;
+
+    function isValidResult(result) {
+      if (result === null || typeof result !== "object") return false;
+
+      if (result.exit === true) return true;
+
+      return typeof result.nextPageId === "string" && result.nextPageId.length > 0;
+    }
 
     while (true) {
-      const history = {
-        id: currentId,
-        params: currentParams,
-      };
+      if (!has(currentId)) {
+        currentParams = { triedId: currentId, startPageId: start.id };
+        currentId = notFound.id;
+      }
 
       try {
-        if (!has(currentId)) {
-          currentParams = { triedId: currentId, startPageId };
-          currentId = resolvedNotFoundId;
-        }
-
         const result = await registry.get(currentId)(ctx, currentParams);
+
+        if (!isValidResult(result)) throw newAppError(`Page with ID ${currentId} returned malformed result`);
 
         if (result.exit) break;
 
+        if (currentId !== error.id) errCounter = 0;
+
         currentId = result.nextPageId;
         currentParams = result.nextParams;
-      } catch (e) {
-        if (currentId === resolvedErrorId) throw e;
+      } catch (err) {
+        if (!isAppError(err)) throw err;
 
-        history.id = currentId;
-        history.params = currentParams;
+        if (errCounter > 2) throw err;
 
-        currentId = resolvedErrorId;
-        currentParams = { error: e, history };
+        currentParams = { appError: err, triedId: currentId, triedParams: currentParams };
+        currentId = error.id;
+
+        errCounter++;
       }
     }
   };
@@ -78,7 +85,6 @@ export function newRouter(pages, startPageId, notFoundPageId, errorPageId) {
   const has = (pageId) => registry.has(pageId);
 
   return {
-    register,
     run,
     has,
   };
