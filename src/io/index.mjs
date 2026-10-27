@@ -9,7 +9,7 @@ export function newIo(input = stdin, output = stdout) {
   };
 
   const prompt = async (question) => {
-    const answer = await rl.question(`${question}\n> `).trim();
+    const answer = await rl.question(`${question}\n> `);
 
     return answer.trim();
   };
