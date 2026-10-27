@@ -20,10 +20,12 @@ export async function handleErrorDefault(ctx, params) {
   };
 }
 
-export async function homePage(ctx, params) {
+export async function handleHome(ctx, params) {
   const { io } = ctx;
 
   await io.sendMessage("Welcome!");
+
+  await io.prompt("Your name?");
 
   return {
     nextPageId: "home",
