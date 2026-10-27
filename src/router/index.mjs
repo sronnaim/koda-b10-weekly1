@@ -74,7 +74,7 @@ export function newRouter({ pages, start, notFound, error }) {
 
         if (errCounter > 2) throw err;
 
-        currentParams = { appError: err, triedId: currentId, triedParams: currentParams };
+        currentParams = { appError: err, triedId: currentId, triedParams: currentParams, startPageId: start.id };
         currentId = error.id;
 
         errCounter++;
