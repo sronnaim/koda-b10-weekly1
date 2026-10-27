@@ -19,14 +19,14 @@ export async function handleNotFoundDefault(ctx, params) {
 
 export async function handleErrorDefault(ctx, params) {
   const { io } = ctx;
-  const { triedId, startPageId } = params;
+  const { appError, startPageId } = params;
 
-  await io.sendMessage(`Whoops, ada kesalahan waktu mengakses page dengan ID ${triedId}`);
+  await io.sendMessage(appError.message);
 
   while (true) {
-    const answer = await io.prompt("Kembali ke menu utama? (ya)").toLowerCase();
+    const answer = await io.prompt("Kembali ke menu utama? (ya)");
 
-    if (answer === "ya") break;
+    if (answer.toLowerCase() === "ya") break;
 
     io.sendMessage("Jawaban tidak dikenal");
   }

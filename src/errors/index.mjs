@@ -1,11 +1,12 @@
 export function newAppError(msg) {
-  const err = new Error(`AppError: ${msg}`);
+  const err = new Error(msg);
 
+  err.code = "APP_ERROR";
   return err;
 }
 
 export function isAppError(err) {
   if (!(err instanceof Error)) return false;
 
-  return err.message.startsWith("AppError");
+  return err.code === "APP_ERROR";
 }
