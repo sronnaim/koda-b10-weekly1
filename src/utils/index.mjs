@@ -1,3 +1,5 @@
+import { newAppError } from "../errors/index.mjs";
+
 /**
  *
  * @param {number} num
@@ -23,4 +25,20 @@ export function toJakartaLocalTime(date) {
     hour12: false,
     timeZone: "Asia/Jakarta",
   });
+}
+
+export function generateOptionsMapForItems(items, start = 1) {
+  if (!Array.isArray(items)) throw newAppError("Array needed to generate options");
+
+  let key = start;
+
+  const map = items.reduce((prevMap, item) => {
+    prevMap.set(`${key}`, item);
+
+    key++;
+
+    return prevMap;
+  }, new Map());
+
+  return map;
 }
