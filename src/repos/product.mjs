@@ -1,4 +1,4 @@
-export async function newProductRepo(db) {
+export function newProductRepo(db) {
   const getAll = async () => {
     return await db.read();
   };

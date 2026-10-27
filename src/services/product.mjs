@@ -1,6 +1,6 @@
 import { newAppError } from "../errors/index.mjs";
 
-export async function newProductsService(repo) {
+export function newProductsService(repo) {
   const listProducts = async () => {
     return await repo.getAll();
   };
