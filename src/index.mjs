@@ -1,63 +1,90 @@
-import { newApp } from "./app/index.mjs";
-import { handleCart, handleConfirm, handleCreateOrder, handleExit, handleHistory, handleMainMenu, handleOrder } from "./pages/index.mjs";
-
-/**
- * @typedef {Object} Product
- * @property {number} id
- * @property {string} name
- * @property {number} price
- * @property {number} stock
- */
-
-/**
- * @typedef {Object} Destination
- * @property {string} nextPage
- * @property {any} [context]
- */
-
-/**
- * @typedef {Object} CartItem
- * @property {number} id
- * @property {number} qty
- */
-
-/**
- * @typedef {(string) => { valid: Boolean, msg: string | undefined }} ValidationFn
- */
-
-/**
- * @typedef {([any]) => Promise<Destination>} PageHandler
- */
-
-/**
- * @typedef {Object} OrderItem
- * @property {number} productId
- * @property {string} name
- * @property {number} qty
- * @property {number} price
- * @property {number} subtotal
- */
-
-/**
- * @typedef {Object} Order
- * @property {string} id
- * @property {OrderItem[]} items
- * @property {number} total
- * @property {Date} createdAt
- */
+import { handleAddToCart, handleCart, handleConfirm, handleCreateTransaction, handleHistory, handleMainMenu, handleOrder } from "./app/pages.mjs";
+import { newJsonDb } from "./db/json.mjs";
+import { products } from "./db/seed.mjs";
+import { newIo } from "./io/index.mjs";
+import { handleErrorDefault, handleNotFoundDefault } from "./pages/index.mjs";
+import { newCartRepo } from "./repos/cart.mjs";
+import { newProductRepo } from "./repos/product.mjs";
+import { newTransactionRepo } from "./repos/transaction.mjs";
+import { newRouter } from "./router/index.mjs";
+import { newCartService } from "./services/cart.mjs";
+import { newProductsService } from "./services/product.mjs";
+import { newTransactionService } from "./services/transaction.mjs";
 
 function main() {
-  const app = newApp();
+  const productDb = newJsonDb("products", products);
+  const productRepo = newProductRepo(productDb);
+  const productService = newProductsService(productRepo);
 
-  app.register("main-menu", handleMainMenu);
-  app.register("exit", handleExit);
-  app.register("order", handleOrder);
-  app.register("cart", handleCart);
-  app.register("history", handleHistory);
-  app.register("confirm", handleConfirm);
-  app.register("create-order", handleCreateOrder);
+  const cartDb = newJsonDb("carts", []);
+  const cartRepo = newCartRepo(cartDb);
+  const cartService = newCartService(cartRepo);
 
-  app.run("main-menu");
+  const transactionDb = newJsonDb("transactions", []);
+  const transactionRepo = newTransactionRepo(transactionDb);
+  const transactionService = newTransactionService({
+    productRepo,
+    transactionRepo,
+  });
+
+  const pages = [{
+    id: "order",
+    pageHandler: handleOrder,
+  }, {
+    id: "confirm",
+    pageHandler: handleConfirm,
+  }, {
+    id: "add-to-cart",
+    pageHandler: handleAddToCart,
+  }, {
+    id: "cart",
+    pageHandler: handleCart,
+  }, {
+    id: "create-transaction",
+    pageHandler: handleCreateTransaction,
+  }, {
+    id: "history",
+    pageHandler: handleHistory,
+  }];
+
+  const start = {
+    id: "main-menu",
+    pageHandler: handleMainMenu,
+  };
+
+  const notFound = {
+    id: "not-found",
+    pageHandler: handleNotFoundDefault,
+  };
+
+  const error = {
+    id: "error",
+    pageHandler: handleErrorDefault,
+  };
+
+  const io = newIo();
+
+  const app = newRouter({
+    pages,
+    start,
+    notFound,
+    error,
+  });
+
+  app.run({ io, services: {
+    productService,
+    cartService,
+    transactionService,
+  },
+  })
+    .catch((err) => {
+      console.error(err);
+      console.log("\nWhoops, ada kesalahan sistem nih");
+    })
+    .finally(() => {
+      console.log("Keluar program...");
+      io.close();
+    });
 }
 
 main();

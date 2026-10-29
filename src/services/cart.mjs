@@ -28,10 +28,15 @@ export function newCartService(repo) {
     await repo.dropItem(id);
   };
 
+  const resetCart = async () => {
+    await repo.reset([]);
+  };
+
   return {
     listItems,
     addLine,
     updateQty,
     removeLine,
+    resetCart,
   };
 }

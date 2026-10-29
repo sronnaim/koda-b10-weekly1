@@ -36,11 +36,16 @@ export function newCartRepo(db) {
     await db.save(cartItems);
   };
 
+  const reset = async () => {
+    await db.save([]);
+  };
+
   return {
     getAll,
     addItem,
     updateItem,
     getItem,
     dropItem,
+    reset,
   };
 }
